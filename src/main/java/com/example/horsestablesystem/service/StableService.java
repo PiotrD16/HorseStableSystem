@@ -1,106 +1,99 @@
 package com.example.horsestablesystem.service;
 
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.PrintWriter;
 import java.util.List;
-import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 
+import com.example.horsestablesystem.dto.horse.HorseListDTO;
+import com.example.horsestablesystem.dto.stable.StableCreateDTO;
+import com.example.horsestablesystem.dto.stable.StableResponseDTO;
 import com.example.horsestablesystem.entity.HorseEntity;
 import com.example.horsestablesystem.entity.StableEntity;
 import com.example.horsestablesystem.exception.StableNotFoundException;
 import com.example.horsestablesystem.repository.HorseRepo;
 import com.example.horsestablesystem.repository.StableRepo;
 
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
 public class StableService {
+
     private final StableRepo stableRepo;
     private final HorseRepo horseRepo;
 
-    // Zwraca wszystkie stadniny
-    public List<StableEntity> getAllStables() {
-        return stableRepo.findAll();
+    // Wszystkie stadniny
+    public List<StableResponseDTO> getAllStables() {
+        return stableRepo.findAll().stream()
+                .map(this::toStableResponseDTO)
+                .toList();
     }
 
-    // Zwraca wszystkie konie w stadninie
-    public List<HorseEntity> getHorsesInStable(Long stableId) {
-        Optional<StableEntity> stable = stableRepo.findById(stableId);
-        if(stable.isPresent()) {
-            return stable.get().getHorses();
-        } else {
-            throw new StableNotFoundException("Stable not found with ID: " + stableId);
-        }
+    // Konie w stadninie
+    public List<HorseListDTO> getHorsesInStable(Long stableId) {
+
+        StableEntity stable = stableRepo.findById(stableId)
+                .orElseThrow(() -> new StableNotFoundException("Stable not found with ID: " + stableId));
+
+        return stable.getHorses().stream()
+                .map(this::toHorseListDTO)
+                .toList();
     }
 
-    // To samo co wyżej plus eksport do CSV
-    public void exportHorsesInStableToCSV(Long stableId, String filePath) {
-        Optional<StableEntity> stable = stableRepo.findById(stableId);
+    // Dodanie stadniny
+    public StableResponseDTO addStable(StableCreateDTO dto) {
 
-        if(stable.isPresent()) {
-            List<HorseEntity> horses = stable.get().getHorses();
-            
-            try (PrintWriter writer = new PrintWriter(new FileWriter(filePath))) {
-            
-            writer.println("ID;Nazwa;Wiek;Rasa;Status;Typ;Cena;Waga");
-
-            for (HorseEntity horse : horses) {
-                writer.print(horse.getHorseId() + ";");
-                writer.print(horse.getHorseName() + ";");
-                writer.print(horse.getHorseAge() + ";");
-                writer.print(horse.getHorseBreed() + ";");
-                writer.print(horse.getHorseStatus() + ";");
-                writer.print(horse.getHorseType() + ";");
-                writer.print(horse.getHorsePrice() + ";");
-                writer.println(horse.getHorseWeight());
-            }
-
-            } catch (IOException e) {
-                throw new RuntimeException("Błąd podczas generowania pliku CSV: " + e.getMessage());
-            }
-        } 
-        else {
-            throw new StableNotFoundException("Stable not found with ID: " + stableId);
-        }
-    }
-
-    // Dodaje nową stadninę
-    public StableEntity addStable(StableEntity stable) {
-        if(stable == null) throw new IllegalArgumentException("Stable cannot be null");
-
-        if(stableRepo.existsByStableName(stable.getStableName())) {
-            throw new IllegalArgumentException("Stable with name " + stable.getStableName() + " already exists.");
+        if (stableRepo.existsByStableName(dto.getStableName())) {
+            throw new IllegalArgumentException("Stable with name " + dto.getStableName() + " already exists.");
         }
 
+        StableEntity stable = new StableEntity();
         stable.setStableId(null);
-        return stableRepo.save(stable);
+        stable.setStableName(dto.getStableName());
+        stable.setStableDescription(dto.getStableDescription());
+        stable.setLocation(dto.getLocation());
+        stable.setMaxCapacity(dto.getMaxCapacity());
+        stable.setEstablishedYear(dto.getEstablishedYear());
+
+        return toStableResponseDTO(stableRepo.save(stable));
     }
 
-    // Usuwa stadninę
-    @Transactional
+    // Usunięcie stadniny
     public void deleteStable(Long stableId) {
-        if(!stableRepo.existsById(stableId)) {
+        if (!stableRepo.existsById(stableId)) {
             throw new StableNotFoundException("Stable not found with ID: " + stableId);
         }
         stableRepo.deleteById(stableId);
     }
 
-    // Zwraca zapełnienie stadniny w procentach
+    // Zapełnienie stadniny
     public double getStableOccupancyRate(Long stableId) {
-        Optional<StableEntity> stable = stableRepo.findById(stableId);
-        if(stable.isPresent()) {
-            StableEntity stableEntity = stable.get();
-            long currentOccupancy = horseRepo.countByStableStableId(stableId);
-            int maxCapacity = stableEntity.getMaxCapacity();
-            return (currentOccupancy / (double) maxCapacity) * 100.0;
-        } else {
-            throw new StableNotFoundException("Stable not found with ID: " + stableId);
-        }
+        StableEntity stable = stableRepo.findById(stableId)
+                .orElseThrow(() -> new StableNotFoundException("Stable not found with ID: " + stableId));
+
+        long current = horseRepo.countByStableStableId(stableId);
+        return (current / (double) stable.getMaxCapacity()) * 100.0;
+    }
+
+    // ========= MAPPER =========
+    private StableResponseDTO toStableResponseDTO(StableEntity stable) {
+        StableResponseDTO dto = new StableResponseDTO();
+        dto.setStableId(stable.getStableId());
+        dto.setStableName(stable.getStableName());
+        dto.setStableDescription(stable.getStableDescription());
+        dto.setLocation(stable.getLocation());
+        dto.setMaxCapacity(stable.getMaxCapacity());
+        dto.setEstablishedYear(stable.getEstablishedYear());
+        dto.setHorses(stable.getHorses().stream().map(this::toHorseListDTO).toList());
+        return dto;
+    }
+
+    private HorseListDTO toHorseListDTO(HorseEntity horse) {
+        HorseListDTO dto = new HorseListDTO();
+        dto.setHorseId(horse.getHorseId());
+        dto.setHorseName(horse.getHorseName());
+        dto.setHorseAge(horse.getHorseAge());
+        dto.setHorseBreed(horse.getHorseBreed());
+        return dto;
     }
 }
-

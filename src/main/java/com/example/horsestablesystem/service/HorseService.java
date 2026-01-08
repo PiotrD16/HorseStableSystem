@@ -1,10 +1,12 @@
 package com.example.horsestablesystem.service;
 
 import java.util.List;
-import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 
+import com.example.horsestablesystem.dto.horse.HorseCreateDTO;
+import com.example.horsestablesystem.dto.horse.HorseListDTO;
+import com.example.horsestablesystem.dto.horse.HorseResponseDTO;
 import com.example.horsestablesystem.entity.HorseEntity;
 import com.example.horsestablesystem.entity.StableEntity;
 import com.example.horsestablesystem.exception.HorseExistsException;
@@ -18,47 +20,83 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class HorseService {
+
     private final HorseRepo horseRepo;
     private final StableRepo stableRepo;
 
     // Wszystkie konie
-    public List<HorseEntity> getAllHorses() {
-        return horseRepo.findAll();
+    public List<HorseListDTO> getAllHorses() {
+        return horseRepo.findAll().stream()
+                .map(this::toHorseListDTO)
+                .toList();
     }
 
-    // Wyszukiwanie konia w widełkach cenowych
-    public List<HorseEntity> getHorsesinPriceRange(Double minPrice, Double maxPrice) {
-        return horseRepo.findByHorsePriceBetweenOrderByHorsePriceAsc(minPrice, maxPrice);
+    // Wyszukiwanie koni w przedziale cenowym
+    public List<HorseListDTO> getHorsesinPriceRange(Double minPrice, Double maxPrice) {
+        return horseRepo.findByHorsePriceBetweenOrderByHorsePriceAsc(minPrice, maxPrice).stream()
+                .map(this::toHorseListDTO)
+                .toList();
     }
 
     // Dodanie konia
-    public HorseEntity addHorse(HorseEntity horse) {
-        if (horse.getStable() == null || horse.getStable().getStableName() == null) {
-        throw new IllegalArgumentException("Musisz podać dane stajni!");
+    public HorseResponseDTO addHorse(HorseCreateDTO dto) {
+
+        if (!stableRepo.existsById(dto.getStableId())) {
+            throw new StableNotFoundException("Podana stadnina nie istnieje");
         }
 
-        StableEntity stable = stableRepo.findByStableName(horse.getStable().getStableName());
-
-        if (!stableRepo.existsByStableName(horse.getStable().getStableName())) {
-            throw new StableNotFoundException("Podana stadnina nie istnieje: " + horse.getStable().getStableName());
+        if (horseRepo.existsByHorseName(dto.getHorseName())) {
+            throw new HorseExistsException("Koń o imieniu " + dto.getHorseName() + " już jest w systemie!");
         }
 
-        if (horseRepo.existsByHorseName(horse.getHorseName())) {
-            throw new HorseExistsException("Koń o imieniu " + horse.getHorseName() + " już jest w systemie!");
-        }
-        
+        StableEntity stable = stableRepo.findById(dto.getStableId()).get();
+
+        HorseEntity horse = new HorseEntity();
         horse.setHorseId(null);
+        horse.setHorseName(dto.getHorseName());
+        horse.setHorseAge(dto.getHorseAge());
+        horse.setHorseBreed(dto.getHorseBreed());
+        horse.setHorseDescription(dto.getHorseDescription());
+        horse.setHorseStatus(dto.getHorseStatus());
+        horse.setHorseType(dto.getHorseType());
+        horse.setHorsePrice(dto.getHorsePrice());
+        horse.setHorseWeight(dto.getHorseWeight());
         horse.setStable(stable);
-        return horseRepo.save(horse);
+
+        HorseEntity saved = horseRepo.save(horse);
+        return toHorseResponseDTO(saved);
     }
 
     // Usunięcie konia
     public void deleteHorse(Long horseId) throws HorseNotFoundException {
-        Optional<HorseEntity> horse = horseRepo.findById(horseId);
-        if (horse.isPresent()) {
-            horseRepo.deleteById(horseId);
-        } else {
+        if (!horseRepo.existsById(horseId)) {
             throw new HorseNotFoundException("Nie znaleziono konia!");
         }
+        horseRepo.deleteById(horseId);
+    }
+
+    // ========= MAPPER =========
+    private HorseListDTO toHorseListDTO(HorseEntity horse) {
+        HorseListDTO dto = new HorseListDTO();
+        dto.setHorseId(horse.getHorseId());
+        dto.setHorseName(horse.getHorseName());
+        dto.setHorseAge(horse.getHorseAge());
+        dto.setHorseBreed(horse.getHorseBreed());
+        return dto;
+    }
+
+    private HorseResponseDTO toHorseResponseDTO(HorseEntity horse) {
+        HorseResponseDTO dto = new HorseResponseDTO();
+        dto.setHorseId(horse.getHorseId());
+        dto.setHorseName(horse.getHorseName());
+        dto.setHorseAge(horse.getHorseAge());
+        dto.setHorseBreed(horse.getHorseBreed());
+        dto.setHorseDescription(horse.getHorseDescription());
+        dto.setHorseStatus(horse.getHorseStatus().name());
+        dto.setHorseType(horse.getHorseType().name());
+        dto.setHorsePrice(horse.getHorsePrice());
+        dto.setHorseWeight(horse.getHorseWeight());
+        dto.setStableName(horse.getStable().getStableName());
+        return dto;
     }
 }

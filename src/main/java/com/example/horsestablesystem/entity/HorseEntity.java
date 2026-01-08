@@ -1,21 +1,17 @@
 package com.example.horsestablesystem.entity;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import jakarta.persistence.Column;
 
 import com.example.horsestablesystem.enums.HorseCondition;
 import com.example.horsestablesystem.enums.HorseType;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "horse")
@@ -46,6 +42,7 @@ public class HorseEntity {
 
     @Column(name = "horse_price")
     private Double horsePrice;
+
     @Column(name = "horse_type", length = 50, nullable = false)
     @Enumerated(EnumType.STRING)
     private HorseType horseType;
@@ -55,5 +52,10 @@ public class HorseEntity {
 
     @ManyToOne
     @JoinColumn(name = "id_stable")
+    @JsonBackReference("stable-horse")
     private StableEntity stable;
+
+    @OneToMany(mappedBy = "horse", cascade = CascadeType.ALL)
+    @JsonManagedReference("horse-rating")
+    private List<RatingEntity> ratings = new ArrayList<>();
 }

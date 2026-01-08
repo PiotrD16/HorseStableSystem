@@ -1,8 +1,11 @@
 package com.example.horsestablesystem.controller;
 
-import com.example.horsestablesystem.entity.StableEntity;
+import com.example.horsestablesystem.dto.horse.HorseListDTO;
+import com.example.horsestablesystem.dto.stable.StableCreateDTO;
+import com.example.horsestablesystem.dto.stable.StableResponseDTO;
 import com.example.horsestablesystem.service.StableService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -29,53 +32,63 @@ public class StableControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @Test // Endpoint 5: Pobieranie wszystkich stajni
+    @Test
     void shouldGetAllStables() throws Exception {
         when(stableService.getAllStables()).thenReturn(Collections.emptyList());
 
-        mockMvc.perform(get("/api/stable"))
+        mockMvc.perform(get("/api/stables"))
                 .andExpect(status().isOk());
     }
 
-    @Test // Endpoint 6: Konie w stajni
+    @Test
     void shouldGetHorsesByStableId() throws Exception {
         when(stableService.getHorsesInStable(1L)).thenReturn(Collections.emptyList());
 
-        mockMvc.perform(get("/api/stable/1"))
+        mockMvc.perform(get("/api/stables/1/horses"))
                 .andExpect(status().isOk());
     }
 
-    @Test // Endpoint 7: Eksport CSV
-    void shouldExportCSV() throws Exception {
-        mockMvc.perform(get("/api/stable/1/csv"))
-                .andExpect(status().isOk());
-    }
-
-    @Test // Endpoint 8: Dodawanie stajni
+    @Test
     void shouldAddStable() throws Exception {
-        StableEntity stable = new StableEntity();
-        stable.setStableName("Zlota Podkowa");
-        
-        when(stableService.addStable(any(StableEntity.class))).thenReturn(stable);
+        StableResponseDTO response = new StableResponseDTO();
+        response.setStableId(1L);
+        response.setStableName("Zlota Podkowa");
+        response.setStableDescription("Najlepsza stajnia w mieście");
+        response.setLocation("Warszawa");
+        response.setMaxCapacity(10);
+        response.setEstablishedYear(2000);
 
-        mockMvc.perform(post("/api/stable")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(stable)))
+        when(stableService.addStable(any(StableCreateDTO.class))).thenReturn(response);
+
+        // Przygotowanie DTO do wysłania
+        StableCreateDTO createDTO = new StableCreateDTO();
+        createDTO.setStableName("Zlota Podkowa");
+        createDTO.setStableDescription("Najlepsza stajnia w mieście");
+        createDTO.setLocation("Warszawa");
+        createDTO.setMaxCapacity(10);
+        createDTO.setEstablishedYear(2000);
+
+        mockMvc.perform(post("/api/stables")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createDTO)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.stableName").value("Zlota Podkowa"));
+                .andExpect(jsonPath("$.stableName").value("Zlota Podkowa"))
+                .andExpect(jsonPath("$.location").value("Warszawa"))
+                .andExpect(jsonPath("$.maxCapacity").value(10));
     }
 
-    @Test // Endpoint 9: Usuwanie stajni
+
+    @Test
     void shouldDeleteStable() throws Exception {
-        mockMvc.perform(delete("/api/stable/1"))
+        mockMvc.perform(delete("/api/stables/1"))
                 .andExpect(status().isNoContent());
     }
 
-    @Test // Endpoint 10: Zapełnienie stajni
-    void shouldGetStableFill() throws Exception {
+    @Test
+    void shouldGetStableOccupancy() throws Exception {
         when(stableService.getStableOccupancyRate(1L)).thenReturn(75.5);
 
-        mockMvc.perform(get("/api/stable/1/fill"))
+        mockMvc.perform(get("/api/stables/1/occupancy"))
                 .andExpect(status().isOk())
                 .andExpect(content().string("75.5"));
     }

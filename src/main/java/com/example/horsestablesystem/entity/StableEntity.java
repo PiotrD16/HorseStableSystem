@@ -3,6 +3,7 @@ package com.example.horsestablesystem.entity;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -44,5 +45,6 @@ public class StableEntity {
     private String stableName;
 
     @OneToMany(mappedBy = "stable", cascade = CascadeType.ALL)
+    @JsonManagedReference("stable-horse")
     private List<HorseEntity> horses = new ArrayList<>();
 }

@@ -2,6 +2,7 @@ package com.example.horsestablesystem.entity;
 
 import java.time.LocalDate;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -38,6 +39,7 @@ public class RatingEntity {
 
     @ManyToOne  
     @JoinColumn(name = "horse_id", nullable = false)
+    @JsonBackReference("horse-rating")
     private HorseEntity horse;
 
     // metoda pomocnicza do ustawiania daty na aktualny czas
